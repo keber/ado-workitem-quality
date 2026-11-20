@@ -1,0 +1,5 @@
+{
+  "areaPath": "contoso-platform\\Team A",
+  "workItemTypes": ["User Story", "Task"],
+  "initialLookbackDays": 7
+}

@@ -1,0 +1,31 @@
+# Secrets (copy config.example.ps1 to config.ps1)
+config.ps1
+
+# Monitor state (cursor per project)
+state/
+
+# Raw content downloaded from ADO during family reviews
+reviews/**/cache/
+
+# Logs
+*.log
+
+# ---- Instance-specific content (kept on disk, never published) ----
+
+# Review output: real work item content
+reviews/
+
+# Real project instances. Only projects/example/ is the public template.
+projects/*
+!projects/example/
+
+# Machine-specific paths (project context manifest location)
+projects/*/local.json
+
+# Local-only notes, overlays and session handoff
+*.local.*
+AGENT-NEXT-STEPS.md
+docs/legacy-skill-ado-monitor.md
+docs/examples/*
+!docs/examples/equipment-maintenance-1001/
+
