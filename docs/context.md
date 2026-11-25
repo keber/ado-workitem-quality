@@ -142,6 +142,48 @@ Environment: Windows, Windows PowerShell 5.1 only (no `pwsh`), console codepage 
   characters (U+2013, U+2014, U+2026, U+2018, U+2019, U+201C, U+201D, U+2190-U+21FF). Use ASCII
   equivalents. Spanish accented letters and enie are allowed and expected. UTF-8 without BOM.
 
+## Feature-level candidate clusters (step 1 of the feature-level check)
+
+The family review cannot see what spans families (the same product-owner question asked in
+several families, terms used with no definition). `src/review/cluster-feature.ps1` is the
+deterministic first step: it groups open questions, supuestos and quoted terms of all families of
+one Feature into candidate clusters, so the later analysis starts from candidates instead of
+reading every family.
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\src\review\cluster-feature.ps1 -ReviewsRoot reviews/<project> -FeatureId <id> [-Families 1,2,3] [-OutDir <dir>] [-Threshold 0.15] [-MaxTermWords 4]
+```
+
+- Input: `reviews/<project>/<usId>/proposal-WI-*.md`. Without `-Families`, a family is included
+  when the "Padre" row of its User Story proposal names `Feature #<id>`; with `-Families` the list
+  is used as given and a foreign parent is a warning. `_archive/`, `_feature-*` and `cache/` are
+  never read.
+- Extracted: numbered items under "Preguntas abiertas" (wrapped lines joined), rows of "Supuestos
+  propuestos" (column "Comportamiento propuesto"), and double-quoted terms of up to
+  `-MaxTermWords` words inside them (quotes inside `[...]` markers ignored).
+- Similarity: lowercase, accents, punctuation, `[...]` markers and `#ids` removed, Spanish and
+  pipeline stopwords dropped, light stem (final "s", then final a/e/o). Questions are compared by
+  their question segments only. IDF-weighted Jaccard (generic words such as filtro or grilla weigh
+  little), agglomerative average linkage, merge while the average pairwise similarity is
+  >= `-Threshold`. No randomness: two runs on the same input give byte-identical files.
+- Threshold 0.15 (default), tuned on the first real feature (7 families, 194 entries): plain Jaccard and
+  single linkage either missed paraphrased questions or chained unrelated ones; average linkage at
+  0.20 lost real candidates. It is a candidate generator: recall over precision, the analyst
+  discards. Weights depend on the corpus, so adding families changes the scores.
+- Output: `reviews/<project>/_feature-<id>/candidates.md` and `candidates.json` (sidecar for the
+  next stage). Every entry lands in exactly one cluster (cross-family, intra-family or single)
+  with all its sources (family, item, kind, number, original text); a US repeating its Tasks'
+  questions gives an intra-family group, never a lost source. "Shared terms" lists quoted terms
+  whose wording appears in the questions or supuestos of 2+ families.
+- Never writes family files; an `-OutDir` inside a family folder is refused. Exit 0 ok, 1 coverage
+  invariant broken, 2 usage error.
+- Limits: wording similarity, not meaning; one topic can still split into two clusters and a
+  cluster can hold a weak member (the report shows min/avg/max pair similarity). Terms come only
+  from quotes in questions and supuestos, not from criteria or scope text.
+- Tests: `tests/review/cluster-feature.Tests.ps1` (Pester 5) on the synthetic fixture
+  `tests/fixtures/feature-1000/`:
+  `powershell -NoProfile -ExecutionPolicy Bypass -Command "Import-Module Pester -MinimumVersion 5.0; Invoke-Pester -Path tests/review"`.
+
 ## Reference case
 
 `docs/examples/equipment-maintenance-1001/` is a small fictional cycle (US 1001 "Equipment
