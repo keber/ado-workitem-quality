@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "featureId": "1000",
+  "clusterReviews": [
+    {
+      "cluster": "C001",
+      "decision": "confirmed",
+      "reason": "Las tres familias usan \"En espera\" para una solicitud con repuesto pendiente y ninguna lo define."
+    },
+    {
+      "cluster": "C002",
+      "decision": "confirmed",
+      "reason": "La misma pregunta de roles (asignar frente a consultar) aparece en 1001 y en 2001."
+    },
+    {
+      "cluster": "C003",
+      "decision": "discarded",
+      "reason": "Cada ítem necesita su propio usuario validador: la coincidencia es de plantilla, no de tema."
+    },
+    {
+      "cluster": "C004",
+      "decision": "confirmed",
+      "reason": "Ambas familias notifican al supervisor por correo y ninguna define la lista de destinatarios."
+    }
+  ],
+  "consolidatedQuestions": [
+    {
+      "id": "CQ-01",
+      "question": "¿Qué significa que una solicitud quede \"En espera\", en qué casos se usa en lugar de \"Cerrada\" y quién la reactiva cuando llega el repuesto?",
+      "clusters": ["C001"],
+      "entries": ["F1001-WI1001-P2", "F2001-WI2001-P2", "F3001-WI3001-S1"],
+      "affectedItems": ["1001", "2001", "3001"]
+    },
+    {
+      "id": "CQ-02",
+      "question": "¿Qué roles pueden asignar solicitudes a un técnico y cuáles solo consultar la lista y la cola?",
+      "clusters": ["C002"],
+      "entries": ["F1001-WI1001-P3", "F1001-WI1002-P1", "F2001-WI2001-P1"],
+      "affectedItems": ["1001", "1002", "2001"]
+    },
+    {
+      "id": "CQ-03",
+      "question": "¿A qué correo o lista de destinatarios se notifica al supervisor, tanto por plazo de atención superado como por stock bajo el mínimo?",
+      "clusters": ["C004"],
+      "entries": ["F2001-WI2001-P3", "F2001-WI2002-P1", "F3001-WI3001-P3"],
+      "affectedItems": ["2001", "2002", "3001"]
+    }
+  ],
+  "notConsolidated": [
+    { "entry": "F1001-WI1001-P4", "status": "family-local", "reason": "Usuario validador propio de cada ítem (grupo C003 descartado)." },
+    { "entry": "F1001-WI1002-P3", "status": "family-local", "reason": "Usuario validador propio de cada ítem (grupo C003 descartado)." },
+    { "entry": "F2001-WI2001-P4", "status": "family-local", "reason": "Usuario validador propio de cada ítem (grupo C003 descartado)." },
+    { "entry": "F1001-WI1001-P1", "status": "family-local", "reason": "Equipos arrendados y dados de baja: solo afecta a la familia 1001." },
+    { "entry": "F1001-WI1002-P2", "status": "family-local", "reason": "Equipos arrendados y dados de baja: solo afecta a la familia 1001." },
+    { "entry": "F3001-WI3001-P2", "status": "family-local", "reason": "Stock mínimo por bodega: solo afecta a la familia 3001." },
+    { "entry": "F3001-WI3002-P1", "status": "family-local", "reason": "Stock mínimo por bodega: solo afecta a la familia 3001." },
+    { "entry": "F3001-WI3001-P1", "status": "family-local", "reason": "Proveedor de repuestos importados: solo afecta a la familia 3001." }
+  ],
+  "findings": [
+    {
+      "id": "FF-01",
+      "kind": "contradiction",
+      "title": "\"En espera\" se usa sin definición en tres familias",
+      "description": "1001 duda entre \"En espera\" y \"Cerrada\", 2001 pregunta qué significa y 3001 propone \"en espera\" como supuesto: el estado no está definido y 3001 lo da por decidido.",
+      "term": "en espera",
+      "clusters": ["C001"],
+      "consolidatedQuestions": ["CQ-01"],
+      "evidence": [
+        { "family": "1001", "item": "1001", "section": "criterion", "number": 2, "detail": "Cierre con repuesto pendiente" },
+        { "family": "1001", "item": "1001", "section": "question", "number": 2 },
+        { "family": "2001", "item": "2001", "section": "question", "number": 2 },
+        { "family": "3001", "item": "3001", "section": "supuesto", "number": 1 }
+      ]
+    },
+    {
+      "id": "FF-02",
+      "kind": "repeated-question",
+      "title": "Permisos por rol preguntados en dos familias",
+      "description": "La misma pregunta de roles aparece en la User Story 1001, su Task 1002 y la User Story 2001.",
+      "clusters": ["C002"],
+      "consolidatedQuestions": ["CQ-02"],
+      "evidence": [
+        { "family": "1001", "item": "1001", "section": "question", "number": 3 },
+        { "family": "1001", "item": "1002", "section": "question", "number": 1 },
+        { "family": "2001", "item": "2001", "section": "question", "number": 1 }
+      ]
+    },
+    {
+      "id": "FF-03",
+      "kind": "overlap",
+      "title": "Dos notificaciones por correo al supervisor",
+      "description": "2002 avisa por plazo superado y 3001 por stock bajo el mínimo; conviene una sola definición de destinatarios.",
+      "clusters": ["C004"],
+      "consolidatedQuestions": ["CQ-03"],
+      "evidence": [
+        { "family": "2001", "item": "2002", "section": "objective", "detail": "Avisar al supervisor cuando una solicitud supera el plazo de atención" },
+        { "family": "2001", "item": "2002", "section": "question", "number": 1 },
+        { "family": "3001", "item": "3001", "section": "question", "number": 3 }
+      ]
+    },
+    {
+      "id": "FF-04",
+      "kind": "dependency",
+      "title": "La cola del técnico necesita solicitudes creadas y asignadas por 1001",
+      "description": "El criterio 1 de 2001 parte de solicitudes asignadas a un técnico; esas solicitudes las crea el criterio 1 de 1001 y ninguna familia define cómo se asignan.",
+      "clusters": [],
+      "consolidatedQuestions": [],
+      "evidence": [
+        { "family": "2001", "item": "2001", "section": "criterion", "number": 1, "detail": "Cola del técnico" },
+        { "family": "1001", "item": "1001", "section": "criterion", "number": 1, "detail": "Creación de solicitud" }
+      ]
+    }
+  ]
+}

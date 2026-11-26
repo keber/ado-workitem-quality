@@ -1,0 +1,541 @@
+{
+    "featureId":  "1000",
+    "threshold":  0.15,
+    "maxTermWords":  4,
+    "method":  "IDF-weighted Jaccard over stemmed content words (question: inverted-question segments only), average linkage",
+    "coverageOk":  true,
+    "warnings":  [
+
+                 ],
+    "families":  [
+                     {
+                         "id":  "1001",
+                         "parent":  "1000",
+                         "parentMatches":  true,
+                         "items":  [
+                                       "1001",
+                                       "1002"
+                                   ],
+                         "questions":  7,
+                         "supuestos":  1
+                     },
+                     {
+                         "id":  "2001",
+                         "parent":  "1000",
+                         "parentMatches":  true,
+                         "items":  [
+                                       "2001",
+                                       "2002"
+                                   ],
+                         "questions":  5,
+                         "supuestos":  1
+                     },
+                     {
+                         "id":  "3001",
+                         "parent":  "1000",
+                         "parentMatches":  true,
+                         "items":  [
+                                       "3001",
+                                       "3002"
+                                   ],
+                         "questions":  4,
+                         "supuestos":  1
+                     }
+                 ],
+    "entries":  [
+                    {
+                        "id":  "F1001-WI1001-P1",
+                        "family":  "1001",
+                        "item":  "1001",
+                        "kind":  "pregunta",
+                        "number":  1,
+                        "text":  "¿Cómo se atienden las solicitudes de equipos arrendados y de equipos dados de baja?",
+                        "tokens":  [
+                                       "arrendad",
+                                       "atienden",
+                                       "baj",
+                                       "dad",
+                                       "equip",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F1001-WI1001-P2",
+                        "family":  "1001",
+                        "item":  "1001",
+                        "kind":  "pregunta",
+                        "number":  2,
+                        "text":  "¿Una solicitud con repuesto pendiente debe quedar \"En espera\" o \"Cerrada\"?",
+                        "tokens":  [
+                                       "cerrad",
+                                       "esper",
+                                       "pendient",
+                                       "quedar",
+                                       "repuest",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F1001-WI1001-P3",
+                        "family":  "1001",
+                        "item":  "1001",
+                        "kind":  "pregunta",
+                        "number":  3,
+                        "text":  "¿Qué roles pueden asignar solicitudes y cuáles solo consultar la lista?",
+                        "tokens":  [
+                                       "asignar",
+                                       "consultar",
+                                       "list",
+                                       "rol",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F1001-WI1001-P4",
+                        "family":  "1001",
+                        "item":  "1001",
+                        "kind":  "pregunta",
+                        "number":  4,
+                        "text":  "¿Quién es el usuario validador de esta funcionalidad (rol o persona)?",
+                        "tokens":  [
+                                       "person",
+                                       "rol",
+                                       "usuari",
+                                       "validador"
+                                   ]
+                    },
+                    {
+                        "id":  "F1001-WI1001-S1",
+                        "family":  "1001",
+                        "item":  "1001",
+                        "kind":  "supuesto",
+                        "number":  1,
+                        "text":  "La lista de solicitudes se ordena por fecha de creación, de la más reciente a la más antigua",
+                        "tokens":  [
+                                       "antigu",
+                                       "creacion",
+                                       "fech",
+                                       "list",
+                                       "orden",
+                                       "recient",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F1001-WI1002-P1",
+                        "family":  "1001",
+                        "item":  "1002",
+                        "kind":  "pregunta",
+                        "number":  1,
+                        "text":  "¿Qué roles pueden asignar solicitudes y cuáles solo consultar la lista?",
+                        "tokens":  [
+                                       "asignar",
+                                       "consultar",
+                                       "list",
+                                       "rol",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F1001-WI1002-P2",
+                        "family":  "1001",
+                        "item":  "1002",
+                        "kind":  "pregunta",
+                        "number":  2,
+                        "text":  "¿Cómo se atienden las solicitudes de equipos arrendados y de equipos dados de baja? Se propone tratarlas igual que las de equipos propios; confirmar.",
+                        "tokens":  [
+                                       "arrendad",
+                                       "atienden",
+                                       "baj",
+                                       "dad",
+                                       "equip",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F1001-WI1002-P3",
+                        "family":  "1001",
+                        "item":  "1002",
+                        "kind":  "pregunta",
+                        "number":  3,
+                        "text":  "¿Quién es el usuario validador de esta Task (rol o persona)?",
+                        "tokens":  [
+                                       "person",
+                                       "rol",
+                                       "usuari",
+                                       "validador"
+                                   ]
+                    },
+                    {
+                        "id":  "F2001-WI2001-P1",
+                        "family":  "2001",
+                        "item":  "2001",
+                        "kind":  "pregunta",
+                        "number":  1,
+                        "text":  "¿Qué roles pueden asignar solicitudes a un técnico y cuáles solo consultar la cola?",
+                        "tokens":  [
+                                       "asignar",
+                                       "col",
+                                       "consultar",
+                                       "rol",
+                                       "solicitud",
+                                       "tecnic"
+                                   ]
+                    },
+                    {
+                        "id":  "F2001-WI2001-P2",
+                        "family":  "2001",
+                        "item":  "2001",
+                        "kind":  "pregunta",
+                        "number":  2,
+                        "text":  "¿Qué significa que una solicitud quede \"En espera\" y quién la reactiva cuando llega el repuesto?",
+                        "tokens":  [
+                                       "esper",
+                                       "lleg",
+                                       "qued",
+                                       "reactiv",
+                                       "repuest",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F2001-WI2001-P3",
+                        "family":  "2001",
+                        "item":  "2001",
+                        "kind":  "pregunta",
+                        "number":  3,
+                        "text":  "¿A qué correo se notifica al supervisor cuando una solicitud supera el plazo de atención? Hoy no existe una lista de destinatarios [fuente: contexto specs \"Notificaciones\" 02-workflows.md:10-12].",
+                        "tokens":  [
+                                       "atencion",
+                                       "corre",
+                                       "notific",
+                                       "plaz",
+                                       "solicitud",
+                                       "super",
+                                       "supervisor"
+                                   ]
+                    },
+                    {
+                        "id":  "F2001-WI2001-P4",
+                        "family":  "2001",
+                        "item":  "2001",
+                        "kind":  "pregunta",
+                        "number":  4,
+                        "text":  "¿Quién es el usuario validador de esta funcionalidad (rol o persona)?",
+                        "tokens":  [
+                                       "person",
+                                       "rol",
+                                       "usuari",
+                                       "validador"
+                                   ]
+                    },
+                    {
+                        "id":  "F2001-WI2001-S1",
+                        "family":  "2001",
+                        "item":  "2001",
+                        "kind":  "supuesto",
+                        "number":  1,
+                        "text":  "La cola del técnico se ordena por prioridad y luego por fecha de asignación",
+                        "tokens":  [
+                                       "asignacion",
+                                       "col",
+                                       "fech",
+                                       "lueg",
+                                       "orden",
+                                       "prioridad",
+                                       "tecnic"
+                                   ]
+                    },
+                    {
+                        "id":  "F2001-WI2002-P1",
+                        "family":  "2001",
+                        "item":  "2002",
+                        "kind":  "pregunta",
+                        "number":  1,
+                        "text":  "¿A qué correo se notifica al supervisor cuando una solicitud supera el plazo de atención?",
+                        "tokens":  [
+                                       "atencion",
+                                       "corre",
+                                       "notific",
+                                       "plaz",
+                                       "solicitud",
+                                       "super",
+                                       "supervisor"
+                                   ]
+                    },
+                    {
+                        "id":  "F3001-WI3001-P1",
+                        "family":  "3001",
+                        "item":  "3001",
+                        "kind":  "pregunta",
+                        "number":  1,
+                        "text":  "¿Qué proveedor entrega los repuestos importados y con qué plazo?",
+                        "tokens":  [
+                                       "entreg",
+                                       "importad",
+                                       "plaz",
+                                       "proveedor",
+                                       "repuest"
+                                   ]
+                    },
+                    {
+                        "id":  "F3001-WI3001-P2",
+                        "family":  "3001",
+                        "item":  "3001",
+                        "kind":  "pregunta",
+                        "number":  2,
+                        "text":  "¿El stock mínimo de un repuesto se define por bodega o para toda la empresa?",
+                        "tokens":  [
+                                       "bodeg",
+                                       "empres",
+                                       "minim",
+                                       "repuest",
+                                       "stock"
+                                   ]
+                    },
+                    {
+                        "id":  "F3001-WI3001-P3",
+                        "family":  "3001",
+                        "item":  "3001",
+                        "kind":  "pregunta",
+                        "number":  3,
+                        "text":  "¿A qué correo se notifica al supervisor cuando el stock de un repuesto baja del mínimo?",
+                        "tokens":  [
+                                       "baj",
+                                       "corre",
+                                       "minim",
+                                       "notific",
+                                       "repuest",
+                                       "stock",
+                                       "supervisor"
+                                   ]
+                    },
+                    {
+                        "id":  "F3001-WI3001-S1",
+                        "family":  "3001",
+                        "item":  "3001",
+                        "kind":  "supuesto",
+                        "number":  1,
+                        "text":  "Un repuesto pendiente deja la solicitud en espera hasta su entrega",
+                        "tokens":  [
+                                       "dej",
+                                       "entreg",
+                                       "esper",
+                                       "pendient",
+                                       "repuest",
+                                       "solicitud"
+                                   ]
+                    },
+                    {
+                        "id":  "F3001-WI3002-P1",
+                        "family":  "3001",
+                        "item":  "3002",
+                        "kind":  "pregunta",
+                        "number":  1,
+                        "text":  "¿El stock mínimo de un repuesto se define por bodega o para toda la empresa?",
+                        "tokens":  [
+                                       "bodeg",
+                                       "empres",
+                                       "minim",
+                                       "repuest",
+                                       "stock"
+                                   ]
+                    }
+                ],
+    "clusters":  [
+                     {
+                         "id":  "C001",
+                         "scope":  "cross-family",
+                         "families":  [
+                                          "1001",
+                                          "2001",
+                                          "3001"
+                                      ],
+                         "minSimilarity":  0.1564,
+                         "avgSimilarity":  0.2146,
+                         "maxSimilarity":  0.3246,
+                         "entries":  [
+                                         "F1001-WI1001-P2",
+                                         "F2001-WI2001-P2",
+                                         "F3001-WI3001-S1"
+                                     ]
+                     },
+                     {
+                         "id":  "C002",
+                         "scope":  "cross-family",
+                         "families":  [
+                                          "1001",
+                                          "2001"
+                                      ],
+                         "minSimilarity":  0.5035,
+                         "avgSimilarity":  0.669,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F1001-WI1001-P3",
+                                         "F1001-WI1002-P1",
+                                         "F2001-WI2001-P1"
+                                     ]
+                     },
+                     {
+                         "id":  "C003",
+                         "scope":  "cross-family",
+                         "families":  [
+                                          "1001",
+                                          "2001"
+                                      ],
+                         "minSimilarity":  1,
+                         "avgSimilarity":  1,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F1001-WI1001-P4",
+                                         "F1001-WI1002-P3",
+                                         "F2001-WI2001-P4"
+                                     ]
+                     },
+                     {
+                         "id":  "C004",
+                         "scope":  "cross-family",
+                         "families":  [
+                                          "2001",
+                                          "3001"
+                                      ],
+                         "minSimilarity":  0.2881,
+                         "avgSimilarity":  0.5254,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F2001-WI2001-P3",
+                                         "F2001-WI2002-P1",
+                                         "F3001-WI3001-P3"
+                                     ]
+                     },
+                     {
+                         "id":  "C005",
+                         "scope":  "intra-family",
+                         "families":  [
+                                          "1001"
+                                      ],
+                         "minSimilarity":  1,
+                         "avgSimilarity":  1,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F1001-WI1001-P1",
+                                         "F1001-WI1002-P2"
+                                     ]
+                     },
+                     {
+                         "id":  "C006",
+                         "scope":  "intra-family",
+                         "families":  [
+                                          "3001"
+                                      ],
+                         "minSimilarity":  1,
+                         "avgSimilarity":  1,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F3001-WI3001-P2",
+                                         "F3001-WI3002-P1"
+                                     ]
+                     },
+                     {
+                         "id":  "C007",
+                         "scope":  "single",
+                         "families":  [
+                                          "1001"
+                                      ],
+                         "minSimilarity":  1,
+                         "avgSimilarity":  1,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F1001-WI1001-S1"
+                                     ]
+                     },
+                     {
+                         "id":  "C008",
+                         "scope":  "single",
+                         "families":  [
+                                          "2001"
+                                      ],
+                         "minSimilarity":  1,
+                         "avgSimilarity":  1,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F2001-WI2001-S1"
+                                     ]
+                     },
+                     {
+                         "id":  "C009",
+                         "scope":  "single",
+                         "families":  [
+                                          "3001"
+                                      ],
+                         "minSimilarity":  1,
+                         "avgSimilarity":  1,
+                         "maxSimilarity":  1,
+                         "entries":  [
+                                         "F3001-WI3001-P1"
+                                     ]
+                     }
+                 ],
+    "terms":  [
+                  {
+                      "term":  "cerrada",
+                      "key":  "cerrad",
+                      "variants":  [
+                                       "Cerrada"
+                                   ],
+                      "families":  [
+                                       "1001"
+                                   ],
+                      "quotedIn":  [
+                                       "F1001-WI1001-P2"
+                                   ],
+                      "sources":  [
+                                      "F1001-WI1001-P2"
+                                  ]
+                  },
+                  {
+                      "term":  "en espera",
+                      "key":  "en esper",
+                      "variants":  [
+                                       "En espera"
+                                   ],
+                      "families":  [
+                                       "1001",
+                                       "2001",
+                                       "3001"
+                                   ],
+                      "quotedIn":  [
+                                       "F1001-WI1001-P2",
+                                       "F2001-WI2001-P2"
+                                   ],
+                      "sources":  [
+                                      "F1001-WI1001-P2",
+                                      "F2001-WI2001-P2",
+                                      "F3001-WI3001-S1"
+                                  ]
+                  }
+              ],
+    "sharedTerms":  [
+                        {
+                            "term":  "en espera",
+                            "key":  "en esper",
+                            "variants":  [
+                                             "En espera"
+                                         ],
+                            "families":  [
+                                             "1001",
+                                             "2001",
+                                             "3001"
+                                         ],
+                            "quotedIn":  [
+                                             "F1001-WI1001-P2",
+                                             "F2001-WI2001-P2"
+                                         ],
+                            "sources":  [
+                                            "F1001-WI1001-P2",
+                                            "F2001-WI2001-P2",
+                                            "F3001-WI3001-S1"
+                                        ]
+                        }
+                    ]
+}

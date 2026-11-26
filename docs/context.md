@@ -184,6 +184,92 @@ powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\src\review\cluster-fe
   `tests/fixtures/feature-1000/`:
   `powershell -NoProfile -ExecutionPolicy Bypass -Command "Import-Module Pester -MinimumVersion 5.0; Invoke-Pester -Path tests/review"`.
 
+## Feature analyst and analysis check (steps 2 and 3 of the feature-level check)
+
+Decision (2026-11-25): feature-level findings go to a separate report in
+`reviews/<project>/_feature-<id>/`; the validated family proposals are never modified (reopening
+them would restart the family consistency loops). QA decides what goes back to a family.
+
+| Step | Who | Input | Output |
+|---|---|---|---|
+| 1. Candidates | `src/review/cluster-feature.ps1` | family proposals | `candidates.md`, `candidates.json` |
+| 2. Analysis | `wi-feature-analyst` (`.claude/agents/`) | candidates + family folders (dossier, evaluation, proposals) | `analysis.json`, `feature-report.md` |
+| 3. Check | `src/review/check-feature-analysis.ps1` | `analysis.json` + `candidates.json` + family proposals | `analysis-check.md` |
+
+The analyst confirms or discards every cross-family cluster with a reason, merges a topic split
+across clusters into one consolidated question, looks for cross-family dependencies that wording
+cannot show (a criterion of one family needs data that a Task of another family creates: it reads
+criteria and scope, not only questions), and classifies findings as `dependency | overlap |
+contradiction | repeated-question`, citing evidence from every family involved.
+`feature-report.md` is neutral professional Spanish for the QA approver: consolidated
+product-owner questions (each once, with all affected items and the questions it replaces),
+dependencies, overlaps, term contradictions, discarded clusters, questions kept in their family.
+
+**`analysis.json` schema (version 1).** Full field rules in `.claude/agents/wi-feature-analyst.md`.
+Example with synthetic data (equipment-maintenance domain, fixture Feature 1000):
+
+```json
+{
+  "schemaVersion": 1,
+  "featureId": "1000",
+  "clusterReviews": [ { "cluster": "C003", "decision": "discarded", "reason": "Cada ítem tiene su propio validador." } ],
+  "consolidatedQuestions": [
+    { "id": "CQ-02", "question": "¿Qué roles pueden asignar solicitudes y cuáles solo consultar?",
+      "clusters": ["C002"], "entries": ["F1001-WI1001-P3", "F1001-WI1002-P1", "F2001-WI2001-P1"],
+      "affectedItems": ["1001", "1002", "2001"] }
+  ],
+  "notConsolidated": [ { "entry": "F3001-WI3001-P1", "status": "family-local", "reason": "Solo afecta a 3001." } ],
+  "findings": [
+    { "id": "FF-04", "kind": "dependency", "title": "...", "description": "...", "clusters": [], "consolidatedQuestions": [],
+      "evidence": [ { "family": "2001", "item": "2001", "section": "criterion", "number": 1 },
+                    { "family": "1001", "item": "1001", "section": "criterion", "number": 1 } ] }
+  ]
+}
+```
+
+- `clusterReviews[]`: `cluster`, `decision` (`confirmed | discarded`), `reason`.
+- `consolidatedQuestions[]`: `id` (`CQ-NN`), `question`, `entries` (candidate entry ids, non-empty),
+  `affectedItems`, optional `clusters`.
+- `notConsolidated[]`: `entry`, `status` (`family-local | discarded`), `reason`.
+- `findings[]`: `id` (`FF-NN`), `kind`, `title`, `description`, `evidence[]`, optional `term`,
+  `clusters`, `consolidatedQuestions`. Evidence row: `family`, `item`, `section`
+  (`criterion | question | supuesto | story | objective | scope | dossier | evaluation | other`),
+  `number` for criterion/question/supuesto, `detail` for the others, optional `quote`.
+
+**Validator.**
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\src\review\check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id> [-ReviewsRoot reviews/<project>] [-Out <report>]
+```
+
+Writes `analysis-check.md` (default in `-AnalysisDir`; a path inside a family folder is refused).
+Exit 0 ok, 1 violations (an unparseable `analysis.json` is a violation, with a report), 2 usage
+error (folder, `analysis.json` or `candidates.json` missing). `-ReviewsRoot` defaults to the parent
+of `-AnalysisDir`. Checks:
+- A1 schema: sections and types, unique well-formed ids, enums, non-empty texts, `featureId`
+  equal to `candidates.json`.
+- A2 references: every family, item (in that family), entry, cluster and `CQ-` id exists; a
+  question/supuesto number must be an entry of that item; a criterion number must exist in the
+  item's proposal (family folder missing: warning, not verifiable).
+- A3 cluster reviews: every cross-family cluster reviewed exactly once with a reason; a confirmed
+  cluster is cited by a finding or consolidated question, a discarded one by none.
+- A4 evidence: dependency, overlap and contradiction cite 2 or more families; repeated-question
+  has 2 or more evidence rows and links a consolidated question.
+- A5 affected items: a consolidated question lists every item that produced any entry it covers.
+- A6 coverage: every question entry of `candidates.json` is accounted for exactly once (covered or
+  `notConsolidated`); supuestos may be covered at most once but are not required (a supuesto is a
+  decision already proposed, not a pending question).
+- A7 character rule on `analysis.json` and `feature-report.md` (missing report: warning).
+
+It checks the contract, not the judgment: a wrongly confirmed cluster with well-formed evidence
+passes. QA reviews `feature-report.md`.
+
+- Tests: `tests/review/check-feature-analysis.Tests.ps1` (Pester 5). Fixtures:
+  `tests/fixtures/feature-1000-analysis/candidates.json` (output of `cluster-feature.ps1` on
+  `tests/fixtures/feature-1000`; a drift test regenerates and compares it) and a hand-written
+  valid `analysis.json`; every invalid case is a mutation of it built in the test. Same command as
+  above (`Invoke-Pester -Path tests/review`).
+
 ## Reference case
 
 `docs/examples/equipment-maintenance-1001/` is a small fictional cycle (US 1001 "Equipment

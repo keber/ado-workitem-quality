@@ -77,6 +77,20 @@ the correction round and does not reset any count.
 Run the stages sequentially (each consumes the previous output). Do not let one subagent do
 another's job; the validator must stay independent of the proposer.
 
+### Feature-level check (after the families of one Feature are reviewed)
+
+Separate report in `reviews/<project>/_feature-<id>/`; family files are never modified. Details,
+schema and limits: `docs/context.md` ("Feature-level candidate clusters" and "Feature analyst and
+analysis check").
+
+1. `src/review/cluster-feature.ps1 -ReviewsRoot reviews/<project> -FeatureId <id>`:
+   `candidates.md` + `candidates.json` (exit 0 ok, 1 coverage broken, 2 usage).
+2. `wi-feature-analyst` with the `_feature-<id>/` folder and the explicit family file paths:
+   `analysis.json` + `feature-report.md`.
+3. `src/review/check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id>`:
+   `analysis-check.md` (exit 0 ok, 1 violations, 2 usage). On violations, run the analyst ONCE
+   more passing only `analysis-check.md`, then check again; if it still fails, stop and report.
+
 ### Output layout
 
 ```
@@ -154,7 +168,9 @@ enie are required in Spanish content.
 ## Layout
 
 ```
-.claude/agents/        wi-reader, wi-evaluator, wi-proposer, wi-validator
+.claude/agents/        wi-reader, wi-evaluator, wi-proposer, wi-validator, wi-feature-analyst
+src/review/            deterministic gates: check-xrefs, cluster-feature, check-feature-analysis
+tests/                 Pester 5 tests (tests/review) and synthetic fixtures (tests/fixtures)
 docs/                  context.md (project memory), context-manifest.md (context port contract),
                        roadmap.md, examples/ (fixture)
 projects/example/      public template: config.json, local.example.json. Real instances live in
