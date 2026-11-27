@@ -309,6 +309,158 @@ Describe 'check-feature-analysis.ps1' {
         }
     }
 
+    Context 'schema version 2' {
+        It 'fails schemaVersion 1 (only 2 is accepted)' {
+            $r = Invoke-Variant { param($a) $a.schemaVersion = 1 }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'schemaVersion'
+        }
+    }
+
+    Context 'intra-family groups may be cited' {
+        It 'passes a consolidated question and a finding that cite intra-family groups' {
+            $r = Invoke-Variant { param($a)
+                $a.notConsolidated = @($a.notConsolidated | Where-Object { $_.entry -notin @('F1001-WI1001-P1', 'F1001-WI1002-P2') })
+                $a.consolidatedQuestions = @($a.consolidatedQuestions) + @([pscustomobject]@{
+                        id = 'CQ-04'; question = 'q'; clusters = @('C005')
+                        entries = @('F1001-WI1001-P1', 'F1001-WI1002-P2'); affectedItems = @('1001', '1002') })
+                (Get-Finding $a 'FF-03').clusters = @('C004', 'C006') }
+            $r.ExitCode | Should -Be 0 -Because $r.Report
+        }
+    }
+
+    Context 'confirmed cluster left with members from one family' {
+        It 'does not warn on the valid analysis' {
+            $ValidReport | Should -Not -Match 'remaining entries'
+        }
+
+        It 'warns, without failing, when a confirmed cross-family cluster keeps entries from one family only' {
+            $r = Invoke-Variant { param($a)
+                $q = Get-Cq $a 'CQ-02'
+                $q.entries = @('F1001-WI1001-P3', 'F1001-WI1002-P1'); $q.affectedItems = @('1001', '1002')
+                $a.notConsolidated = @($a.notConsolidated) + @([pscustomobject]@{ entry = 'F2001-WI2001-P1'; status = 'family-local'; reason = 'x' })
+                (Get-Finding $a 'FF-02').clusters = @() }
+            $r.ExitCode | Should -Be 0 -Because $r.Report
+            $r.Report | Should -Match 'cluster C002: .*remaining entries.*1 family'
+        }
+
+        It 'counts entries cited by evidence of a finding that cites the cluster' {
+            $r = Invoke-Variant { param($a)
+                $q = Get-Cq $a 'CQ-02'
+                $q.entries = @('F1001-WI1001-P3', 'F1001-WI1002-P1'); $q.affectedItems = @('1001', '1002')
+                $a.notConsolidated = @($a.notConsolidated) + @([pscustomobject]@{ entry = 'F2001-WI2001-P1'; status = 'family-local'; reason = 'x' }) }
+            $r.ExitCode | Should -Be 0 -Because $r.Report
+            $r.Report | Should -Not -Match 'remaining entries'
+        }
+    }
+
+    Context 'partial entries of compound questions' {
+        It 'passes a partial entry that is one of the question entries' {
+            $r = Invoke-Variant { param($a)
+                (Get-Cq $a 'CQ-01') | Add-Member -NotePropertyName partialEntries -NotePropertyValue @(
+                    [pscustomobject]@{ entry = 'F2001-WI2001-P2'; localRemainder = 'Quien reactiva la solicitud en 2001.' }) }
+            $r.ExitCode | Should -Be 0 -Because $r.Report
+        }
+
+        It 'fails a partial entry that is not in the question entries' {
+            $r = Invoke-Variant { param($a)
+                (Get-Cq $a 'CQ-01') | Add-Member -NotePropertyName partialEntries -NotePropertyValue @(
+                    [pscustomobject]@{ entry = 'F3001-WI3001-P1'; localRemainder = 'x' }) }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'F3001-WI3001-P1'
+        }
+
+        It 'fails a partial entry with an empty localRemainder' {
+            $r = Invoke-Variant { param($a)
+                (Get-Cq $a 'CQ-01') | Add-Member -NotePropertyName partialEntries -NotePropertyValue @(
+                    [pscustomobject]@{ entry = 'F2001-WI2001-P2'; localRemainder = ' ' }) }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'localRemainder'
+        }
+    }
+
+    Context 'dependency evidence roles (consumer and producer)' {
+        It 'fails a dependency without a producer row' {
+            $r = Invoke-Variant { param($a) @((Get-Finding $a 'FF-04').evidence)[1].role = 'consumer' }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'FF-04.*producer'
+        }
+
+        It 'fails a dependency without any role' {
+            $r = Invoke-Variant { param($a) foreach ($e in @((Get-Finding $a 'FF-04').evidence)) { $e.PSObject.Properties.Remove('role') } }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'FF-04'
+        }
+
+        It 'fails a dependency whose consumer and producer rows are in the same family' {
+            $r = Invoke-Variant { param($a)
+                $f = Get-Finding $a 'FF-04'
+                $f.evidence = @(
+                    @($f.evidence)[0],
+                    [pscustomobject]@{ family = '2001'; item = '2002'; section = 'objective'; role = 'producer'; detail = 'x' },
+                    [pscustomobject]@{ family = '1001'; item = '1001'; section = 'criterion'; number = 1 }) }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'FF-04.*different families'
+        }
+
+        It 'fails an unknown role' {
+            $r = Invoke-Variant { param($a) @((Get-Finding $a 'FF-04').evidence)[1].role = 'source' }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'source'
+        }
+
+        It 'fails a role on evidence of a finding that is not a dependency' {
+            $r = Invoke-Variant { param($a) @((Get-Finding $a 'FF-03').evidence)[0] | Add-Member -NotePropertyName role -NotePropertyValue 'producer' }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'FF-03.*role'
+        }
+    }
+
+    Context 'discarded entries need an explicit answer from another family' {
+        It 'passes a discarded entry answered by another family' {
+            $r = Invoke-Variant { param($a)
+                $x = @($a.notConsolidated | Where-Object { $_.entry -eq 'F3001-WI3001-P1' })[0]
+                $x.status = 'discarded'
+                $x | Add-Member -NotePropertyName answeredBy -NotePropertyValue ([pscustomobject]@{ family = '1001'; item = '1001'; section = 'criterion'; number = 1 }) }
+            $r.ExitCode | Should -Be 0 -Because $r.Report
+        }
+
+        It 'fails a discarded entry without answeredBy' {
+            $r = Invoke-Variant { param($a) @($a.notConsolidated | Where-Object { $_.entry -eq 'F3001-WI3001-P1' })[0].status = 'discarded' }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'F3001-WI3001-P1.*answeredBy'
+        }
+
+        It 'fails answeredBy from the same family as the entry' {
+            $r = Invoke-Variant { param($a)
+                $x = @($a.notConsolidated | Where-Object { $_.entry -eq 'F3001-WI3001-P1' })[0]
+                $x.status = 'discarded'
+                $x | Add-Member -NotePropertyName answeredBy -NotePropertyValue ([pscustomobject]@{ family = '3001'; item = '3002'; section = 'scope'; detail = 'x' }) }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'F3001-WI3001-P1.*answeredBy'
+        }
+
+        It 'fails a malformed answeredBy row' {
+            $r = Invoke-Variant { param($a)
+                $x = @($a.notConsolidated | Where-Object { $_.entry -eq 'F3001-WI3001-P1' })[0]
+                $x.status = 'discarded'
+                $x | Add-Member -NotePropertyName answeredBy -NotePropertyValue ([pscustomobject]@{ family = '1001'; item = '1001'; section = 'criterion' }) }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'answeredBy'
+        }
+
+        It 'fails answeredBy given as a list instead of one row' {
+            $r = Invoke-Variant { param($a)
+                $x = @($a.notConsolidated | Where-Object { $_.entry -eq 'F3001-WI3001-P1' })[0]
+                $x.status = 'discarded'
+                $x | Add-Member -NotePropertyName answeredBy -NotePropertyValue @(
+                    [pscustomobject]@{ family = '1001'; item = '1001'; section = 'criterion'; number = 1 },
+                    [pscustomobject]@{ family = '2001'; item = '2001'; section = 'criterion'; number = 1 }) }
+            $r.ExitCode | Should -Be 1
+            $r.Report | Should -Match 'answeredBy'
+        }
+    }
+
     Context 'usage errors' {
         It 'exits 2 when the analysis folder does not exist' {
             (Invoke-Check @('-AnalysisDir', (Join-Path $TestDrive 'missing'))).ExitCode | Should -Be 2

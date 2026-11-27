@@ -85,9 +85,11 @@ analysis check").
 
 1. `src/review/cluster-feature.ps1 -ReviewsRoot reviews/<project> -FeatureId <id>`:
    `candidates.md` + `candidates.json` (exit 0 ok, 1 coverage broken, 2 usage).
-2. `wi-feature-analyst` with the `_feature-<id>/` folder and the explicit family file paths:
-   `analysis.json` + `feature-report.md`.
-3. `src/review/check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id>`:
+2. `wi-feature-analyst` with the `_feature-<id>/` folder and the explicit family file paths
+   (proposals and `dossier.md`; `evaluation.md` optional; never `validation.md` or
+   `xref-report.md`): `analysis.json` + `feature-report.md`.
+3. `src/review/check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id> -ReviewsRoot reviews/<project>`
+   (`-ReviewsRoot` defaults to the parent of `-AnalysisDir`):
    `analysis-check.md` (exit 0 ok, 1 violations, 2 usage). On violations, run the analyst ONCE
    more passing only `analysis-check.md`, then check again; if it still fails, stop and report.
 

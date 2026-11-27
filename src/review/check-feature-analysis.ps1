@@ -8,7 +8,9 @@
   Checks (each violation is listed in the report with its check id):
   - A1 schema: analysis.json parses; top-level sections present with the right types; ids unique
     and well-formed (CQ-NN, FF-NN); enums valid (decision, status, kind, evidence section);
-    required texts non-empty; featureId equals the one in candidates.json; schemaVersion 1.
+    required texts non-empty; featureId equals the one in candidates.json; schemaVersion 2.
+    A consolidated question's optional partialEntries[] rows need an entry that is in that
+    question's entries and a non-empty localRemainder.
   - A2 references: every cited family, item, entry, cluster and consolidated question exists
     (family/item/entry/cluster in candidates.json; an item must belong to the cited family).
     Evidence with section question/supuesto must name an existing entry of that item; evidence
@@ -18,9 +20,12 @@
   - A3 cluster reviews: every cross-family cluster of candidates.json is reviewed exactly once
     (decision confirmed | discarded, with a reason); a confirmed cluster is used by at least one
     finding or consolidated question; a discarded cluster is used by none.
-  - A4 findings: dependency, overlap and contradiction cite evidence from 2 or more distinct
-    families (so every family involved has its own evidence); repeated-question has 2 or more
-    evidence rows and links at least one consolidated question.
+  - A4 evidence: dependency, overlap and contradiction cite evidence from 2 or more distinct
+    families (so every family involved has its own evidence); a dependency has at least one
+    role=consumer row and one role=producer row from different families; role is allowed only on
+    dependency evidence; repeated-question has 2 or more evidence rows and links at least one
+    consolidated question. A notConsolidated entry with status discarded has answeredBy: one
+    evidence row (no role) from a family other than the entry's family.
   - A5 consolidated questions: affectedItems include every item that produced any entry the
     question covers (no item lost); extra items are allowed if they exist.
   - A6 coverage: every candidate entry of kind "pregunta" appears exactly once across
@@ -28,10 +33,14 @@
     (at most once) but are not required.
   - A7 characters: no U+2013, U+2014, U+2026, U+2018, U+2019, U+201C, U+201D, U+2190-U+21FF in
     analysis.json or feature-report.md.
-  A missing feature-report.md is a warning (the analyst writes both files).
+  Warnings (do not fail): a missing feature-report.md (the analyst writes both files); a
+  confirmed cross-family cluster whose remaining entries span fewer than 2 families (remaining =
+  its member entries listed in a consolidated question that cites the cluster, or named by a
+  question/supuesto evidence row of a finding that cites it): it should have been discarded.
 
 .USAGE
   powershell -NoProfile -ExecutionPolicy Bypass -File src/review/check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id> [-ReviewsRoot reviews/<project>] [-Out <report path>]
+  -ReviewsRoot defaults to the parent folder of -AnalysisDir.
 
 .OUTPUTS
   Markdown report (default <AnalysisDir>/analysis-check.md). Never writes anything else; a report
@@ -197,6 +206,11 @@ function Add-ClusterUse([string]$ClusterId, [string]$User, [string]$Where) {
     if (-not $clusterUse.ContainsKey($ClusterId)) { $clusterUse[$ClusterId] = New-Object System.Collections.Generic.List[string] }
     $clusterUse[$ClusterId].Add($User)
 }
+$clusterPlaced = @{}  # cluster id -> HashSet of entry ids placed in a CQ or finding that cites it
+function Add-ClusterPlaced([string]$ClusterId, $EntryIds) {
+    if (-not $clusterPlaced.ContainsKey($ClusterId)) { $clusterPlaced[$ClusterId] = New-Object 'System.Collections.Generic.HashSet[string]' }
+    foreach ($e in $EntryIds) { [void]$clusterPlaced[$ClusterId].Add([string]$e) }
+}
 function Get-IdList($Obj, [string]$Name, [string]$Where) {
     if (-not (Test-Prop $Obj $Name)) { Add-Violation 'A1' $Where "missing field '$Name'"; return , @() }
     $out = New-Object System.Collections.Generic.List[string]
@@ -211,6 +225,40 @@ $kinds = @('dependency', 'overlap', 'contradiction', 'repeated-question')
 $crossKinds = @('dependency', 'overlap', 'contradiction')
 $sections = @('criterion', 'question', 'supuesto', 'story', 'objective', 'scope', 'dossier', 'evaluation', 'other')
 $numbered = @('criterion', 'question', 'supuesto')
+$roles = @('consumer', 'producer')
+
+# Checks one evidence row. Returns $null when family or item is missing or unknown; otherwise an
+# object with Family and Entry (the candidate entry id a question/supuesto row names, else $null).
+function Test-EvidenceRow($E, [string]$Ew) {
+    $fam = Get-IdText (Get-Prop $E 'family')
+    $item = Get-IdText (Get-Prop $E 'item')
+    $sec = Get-Prop $E 'section'
+    $num = Get-Prop $E 'number'
+    if (-not $fam) { Add-Violation 'A1' $Ew "missing 'family'"; return $null }
+    if (-not $item) { Add-Violation 'A1' $Ew "missing 'item'"; return $null }
+    if (-not $famItems.ContainsKey($fam)) { Add-Violation 'A2' $Ew "unknown family $fam"; return $null }
+    if (-not $famItems[$fam].Contains($item)) { Add-Violation 'A2' $Ew "item $item does not belong to family $fam"; return $null }
+    $res = [pscustomobject]@{ Family = $fam; Entry = $null }
+    if ($sec -notin $sections) { Add-Violation 'A1' $Ew "section must be one of $($sections -join ', '), found '$sec'"; return $res }
+    if ($sec -in $numbered) {
+        if (-not ($num -is [int] -or $num -is [long]) -or $num -lt 1) { Add-Violation 'A1' $Ew "section $sec needs a positive integer 'number'"; return $res }
+        if ($sec -eq 'criterion') {
+            $crit = Get-Criteria $fam $item
+            # $crit is a HashSet[int] or a status string; never compare a set with -eq.
+            if ($crit -is [string] -and $crit -eq 'no-family') { $warnings.Add("${Ew}: family folder $fam not found under $ReviewsRoot; criterion $num of #$item not verifiable.") }
+            elseif ($crit -is [string]) { Add-Violation 'A2' $Ew "no proposal file for item $item in family folder $fam" }
+            elseif (-not $crit.Contains([int]$num)) { Add-Violation 'A2' $Ew "criterion $num does not exist in the proposal of #$item" }
+        } else {
+            $letter = if ($sec -eq 'question') { 'P' } else { 'S' }
+            $eid = "F$fam-WI$item-$letter$num"
+            if (-not $entries.ContainsKey($eid)) { Add-Violation 'A2' $Ew "$sec $num of #$item does not exist (no entry $eid)" }
+            else { $res.Entry = $eid }
+        }
+    } elseif (-not (Test-Text (Get-Prop $E 'detail'))) {
+        Add-Violation 'A1' $Ew "section $sec needs a non-empty 'detail' (where in the $sec)"
+    }
+    return $res
+}
 
 if ($null -ne $analysis) {
     if (-not ($analysis -is [System.Management.Automation.PSCustomObject])) {
@@ -221,7 +269,7 @@ if ($null -ne $analysis) {
 
 if ($null -ne $analysis) {
     # -- top level --
-    if ((Get-Prop $analysis 'schemaVersion') -ne 1) { Add-Violation 'A1' 'schemaVersion' 'must be 1' }
+    if ((Get-Prop $analysis 'schemaVersion') -ne 2) { Add-Violation 'A1' 'schemaVersion' 'must be 2' }
     $aFeature = Get-IdText (Get-Prop $analysis 'featureId')
     if ($aFeature -ne $candFeature) { Add-Violation 'A1' 'featureId' "is '$aFeature', candidates.json has '$candFeature'" }
     foreach ($sec in @('clusterReviews', 'consolidatedQuestions', 'notConsolidated', 'findings')) {
@@ -254,7 +302,24 @@ if ($null -ne $analysis) {
         foreach ($it in @($needed | Sort-Object)) {
             if ($affected -notcontains $it) { Add-Violation 'A5' $where "affectedItems lacks item $it, which produced a covered entry" }
         }
-        if (Test-Prop $q 'clusters') { foreach ($c in (Get-IdList $q 'clusters' $where)) { Add-ClusterUse $c $where "$where clusters" } }
+        if (Test-Prop $q 'clusters') {
+            foreach ($c in (Get-IdList $q 'clusters' $where)) { Add-ClusterUse $c $where "$where clusters"; Add-ClusterPlaced $c $qEntries }
+        }
+        if (Test-Prop $q 'partialEntries') {
+            $pe = $q.PSObject.Properties['partialEntries'].Value   # not Get-Prop: a returned 1-item array unrolls
+            if ($null -ne $pe -and -not ($pe -is [array])) { Add-Violation 'A1' $where "'partialEntries' must be an array" }
+            else {
+                $k = 0
+                foreach ($p in (Get-Array $pe)) {
+                    $k++
+                    $pw = "$where partialEntries[$k]"
+                    $pEntry = Get-IdText (Get-Prop $p 'entry')
+                    if (-not $pEntry) { Add-Violation 'A1' $pw "missing 'entry'" }
+                    elseif ($qEntries -notcontains $pEntry) { Add-Violation 'A2' $pw "partial entry $pEntry is not in the entries of $where" }
+                    if (-not (Test-Text (Get-Prop $p 'localRemainder'))) { Add-Violation 'A1' $pw "missing or empty 'localRemainder'" }
+                }
+            }
+        }
     }
 
     # -- not consolidated --
@@ -269,6 +334,23 @@ if ($null -ne $analysis) {
         if (-not $eid) { Add-Violation 'A1' $where "missing 'entry'"; continue }
         if (-not $entries.ContainsKey($eid)) { Add-Violation 'A2' $where "unknown entry $eid"; continue }
         Add-Coverage $eid "$status"
+        if ($status -eq 'discarded') {
+            $entryFam = [string]$entries[$eid].family
+            if (-not (Test-Prop $x 'answeredBy')) {
+                Add-Violation 'A4' $where "discarded entry needs 'answeredBy' (one evidence row from another family that answers it)"
+                continue
+            }
+            $ab = $x.PSObject.Properties['answeredBy'].Value   # not Get-Prop: a returned 1-item array unrolls
+            if (-not ($ab -is [System.Management.Automation.PSCustomObject])) {
+                Add-Violation 'A4' $where "'answeredBy' must be one evidence row (an object)"
+                continue
+            }
+            if (Test-Prop $ab 'role') { Add-Violation 'A4' "$where answeredBy" "'role' is only allowed on dependency evidence" }
+            $abRow = Test-EvidenceRow $ab "$where answeredBy"
+            if ($null -ne $abRow -and $abRow.Family -eq $entryFam) {
+                Add-Violation 'A4' "$where answeredBy" "must come from a family other than the entry's family $entryFam"
+            }
+        }
     }
 
     # -- findings --
@@ -287,7 +369,8 @@ if ($null -ne $analysis) {
         if ($kind -eq 'contradiction' -and (Test-Prop $f 'term') -and -not (Test-Text (Get-Prop $f 'term'))) {
             Add-Violation 'A1' $where "'term' is present but empty"
         }
-        if (Test-Prop $f 'clusters') { foreach ($c in (Get-IdList $f 'clusters' $where)) { Add-ClusterUse $c $where "$where clusters" } }
+        $fClusters = @()
+        if (Test-Prop $f 'clusters') { $fClusters = Get-IdList $f 'clusters' $where; foreach ($c in $fClusters) { Add-ClusterUse $c $where "$where clusters" } }
         $links = @()
         if (Test-Prop $f 'consolidatedQuestions') { $links = Get-IdList $f 'consolidatedQuestions' $where }
         # CQ existence is checked after all CQs are known (below).
@@ -296,35 +379,32 @@ if ($null -ne $analysis) {
         $ev = Get-Array (Get-Prop $f 'evidence')
         if (-not (Test-Prop $f 'evidence')) { Add-Violation 'A1' $where "missing field 'evidence'" }
         $evFamilies = New-Object 'System.Collections.Generic.HashSet[string]'
+        $consumers = New-Object 'System.Collections.Generic.HashSet[string]'
+        $producers = New-Object 'System.Collections.Generic.HashSet[string]'
+        $evEntries = New-Object System.Collections.Generic.List[string]
         $k = 0
         foreach ($e in $ev) {
             $k++
             $ew = "$where evidence[$k]"
-            $fam = Get-IdText (Get-Prop $e 'family')
-            $item = Get-IdText (Get-Prop $e 'item')
-            $sec = Get-Prop $e 'section'
-            $num = Get-Prop $e 'number'
-            if (-not $fam) { Add-Violation 'A1' $ew "missing 'family'"; continue }
-            if (-not $item) { Add-Violation 'A1' $ew "missing 'item'"; continue }
-            if (-not $famItems.ContainsKey($fam)) { Add-Violation 'A2' $ew "unknown family $fam"; continue }
-            if (-not $famItems[$fam].Contains($item)) { Add-Violation 'A2' $ew "item $item does not belong to family $fam"; continue }
-            [void]$evFamilies.Add($fam)
-            if ($sec -notin $sections) { Add-Violation 'A1' $ew "section must be one of $($sections -join ', '), found '$sec'"; continue }
-            if ($sec -in $numbered) {
-                if (-not ($num -is [int] -or $num -is [long]) -or $num -lt 1) { Add-Violation 'A1' $ew "section $sec needs a positive integer 'number'"; continue }
-                if ($sec -eq 'criterion') {
-                    $crit = Get-Criteria $fam $item
-                    # $crit is a HashSet[int] or a status string; never compare a set with -eq.
-                    if ($crit -is [string] -and $crit -eq 'no-family') { $warnings.Add("${ew}: family folder $fam not found under $ReviewsRoot; criterion $num of #$item not verifiable.") }
-                    elseif ($crit -is [string]) { Add-Violation 'A2' $ew "no proposal file for item $item in family folder $fam" }
-                    elseif (-not $crit.Contains([int]$num)) { Add-Violation 'A2' $ew "criterion $num does not exist in the proposal of #$item" }
-                } else {
-                    $letter = if ($sec -eq 'question') { 'P' } else { 'S' }
-                    $eid = "F$fam-WI$item-$letter$num"
-                    if (-not $entries.ContainsKey($eid)) { Add-Violation 'A2' $ew "$sec $num of #$item does not exist (no entry $eid)" }
+            $row = Test-EvidenceRow $e $ew
+            if ($null -ne $row) { [void]$evFamilies.Add($row.Family); if ($row.Entry) { $evEntries.Add($row.Entry) } }
+            if (Test-Prop $e 'role') {
+                $role = Get-Prop $e 'role'
+                if ($kind -ne 'dependency') { Add-Violation 'A4' $ew "'role' is only allowed on dependency evidence, this finding is '$kind'" }
+                elseif ($role -notin $roles) { Add-Violation 'A1' $ew "role must be one of $($roles -join ', '), found '$role'" }
+                elseif ($null -ne $row) {
+                    if ($role -eq 'consumer') { [void]$consumers.Add($row.Family) } else { [void]$producers.Add($row.Family) }
                 }
-            } elseif (-not (Test-Text (Get-Prop $e 'detail'))) {
-                Add-Violation 'A1' $ew "section $sec needs a non-empty 'detail' (where in the $sec)"
+            }
+        }
+        foreach ($c in $fClusters) { Add-ClusterPlaced $c $evEntries }
+        if ($kind -eq 'dependency') {
+            if ($consumers.Count -eq 0 -or $producers.Count -eq 0) {
+                Add-Violation 'A4' $where 'dependency needs at least one evidence row with role consumer and one with role producer'
+            } else {
+                $pair = $false
+                foreach ($c in $consumers) { foreach ($p in $producers) { if ($c -ne $p) { $pair = $true } } }
+                if (-not $pair) { Add-Violation 'A4' $where 'dependency consumer and producer rows must come from different families' }
             }
         }
         if ($kind -in $crossKinds -and $evFamilies.Count -lt 2) {
@@ -359,7 +439,16 @@ if ($null -ne $analysis) {
         if ($dec -eq 'discarded' -and $users.Count -gt 0) { Add-Violation 'A3' $where "discarded but cited by $($users -join ', ')" }
     }
     foreach ($cid in $crossClusters) {
-        if (-not $reviewed.ContainsKey($cid)) { Add-Violation 'A3' "cluster $cid" 'cross-family cluster without a review (confirm or discard it)' }
+        if (-not $reviewed.ContainsKey($cid)) { Add-Violation 'A3' "cluster $cid" 'cross-family cluster without a review (confirm or discard it)'; continue }
+        if ($reviewed[$cid] -ne 'confirmed') { continue }
+        $members = @(foreach ($m in (Get-Array $clusters[$cid].entries)) { [string]$m })
+        $fams = New-Object 'System.Collections.Generic.HashSet[string]'
+        if ($clusterPlaced.ContainsKey($cid)) {
+            foreach ($eid in $clusterPlaced[$cid]) { if ($members -contains $eid) { [void]$fams.Add([string]$entries[$eid].family) } }
+        }
+        if ($fams.Count -lt 2) {
+            $warnings.Add("confirmed cross-family cluster $cid" + ": its remaining entries (in consolidated questions or findings that cite it) span $($fams.Count) family; discard it with that reason.")
+        }
     }
 
     # -- coverage --
@@ -381,7 +470,7 @@ $result = if ($violations.Count -eq 0) { 'OK' } else { "VIOLATIONS ($($violation
 Add-Line '# Feature analysis check'
 Add-Line "Folder: $AnalysisDir | Date: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm')) UTC | Result: $result | Warnings: $($warnings.Count)"
 Add-Line ''
-Add-Line 'Checks: A1 schema, A2 references exist, A3 cluster reviews, A4 cross-family evidence, A5 affected items, A6 question coverage, A7 character rule.'
+Add-Line 'Checks: A1 schema, A2 references exist, A3 cluster reviews, A4 evidence (cross-family, dependency roles, discard answers), A5 affected items, A6 question coverage, A7 character rule.'
 Add-Line ''
 Add-Line '## Violations'
 if ($violations.Count -eq 0) { Add-Line 'None.' } else {

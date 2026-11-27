@@ -13,9 +13,12 @@ questions into candidate clusters; similar wording is a hint, not a finding. You
 
 - `featureDir`: `reviews/<project>/_feature-<id>/` with `candidates.json` and `candidates.md`
   (written by `src/review/cluster-feature.ps1`).
-- The family folders listed in `candidates.json` (`families[].id`), siblings of `featureDir`:
-  `reviews/<project>/<family>/dossier.md`, `evaluation.md`, `proposal-WI-<id>.md`. The caller
-  should pass their explicit paths; read only those.
+- The family folders listed in `candidates.json` (`families[].id`), siblings of `featureDir`.
+  The caller should pass their explicit paths; read only those:
+  - Mandatory: `reviews/<project>/<family>/proposal-WI-<id>.md` and `dossier.md`.
+  - Optional: `evaluation.md`, only to understand a finding (why a criterion or question exists).
+  - Never read `validation.md` or `xref-report.md`: they judge the wording of the proposals, not
+    the product.
 - The Feature's older or closed children (already built functionality) appear only inside the
   dossiers (hierarchy, context). Use them as context of what exists; never cite them as a family.
 
@@ -49,7 +52,9 @@ kind, consolidated questions, question entries kept family-local or discarded, a
    `scope = "cross-family"`, the intra-family groups, the single entries and `sharedTerms`.
 2. For each family, read the proposals' "Redacción propuesta" (story/objective, scope, criteria),
    "Preguntas abiertas para producto" and "Supuestos propuestos". Read `dossier.md` for the
-   hierarchy and context when a criterion depends on something outside the family.
+   hierarchy and context when a criterion depends on something outside the family. Open
+   `evaluation.md` only when you need it to understand a finding; never open `validation.md` or
+   `xref-report.md`.
 3. **Review every cross-family cluster.** Open each member entry in its proposal (the
    surrounding criterion or scope, not only the question text). Decide:
    - `confirmed`: the members ask about the same product decision or depend on the same
@@ -57,38 +62,61 @@ kind, consolidated questions, question entries kept family-local or discarded, a
      (another consolidated question or `notConsolidated`).
    - `discarded`: shared wording but different decisions (for example, a template question that
      every item asks about itself). Give the reason.
-   You may also review intra-family groups, but cross-family ones are mandatory.
+   **Cluster left in one family.** After moving weak members out, look at the cluster's
+   remaining members: its member entries that sit in a consolidated question citing the cluster,
+   or that a finding citing the cluster names in a `question` or `supuesto` evidence row. If they
+   belong to only one family, the cluster is no longer cross-family: set it `discarded` with that
+   reason ("tras mover los miembros débiles, solo quedan entradas de la familia N") and do not
+   cite it. Its entries can still go into a consolidated question (without citing the cluster)
+   or `notConsolidated`. The validator warns when a confirmed cluster breaks this.
+   You may also review intra-family groups, but cross-family ones are mandatory. Consolidated
+   questions and findings MAY cite intra-family groups in `clusters` (for example, a User Story
+   and its Task asking the same thing); only cross-family groups need a review row.
 4. **Merge split topics.** The script compares wording only, so one topic can land in 2 or more
    clusters (or in a cluster plus single entries). When the same decision appears in several
    clusters, write ONE consolidated question that lists all their entries and all those clusters.
 5. **Look for what wording cannot see.** Read criteria and scope across families and ask:
    - Does a criterion of one family need data, a state, a role or a screen that a Task of another
-     family creates? That is a `dependency` (cite the consuming criterion and the producing
-     criterion or scope).
+     family creates? That is a `dependency`: cite the consuming criterion with `role: "consumer"`
+     and the producing criterion or scope with `role: "producer"`; at least one of each, from
+     different families. Without both sides cited it is not a dependency yet: ask it as a
+     question.
    - Do two families build the same thing (two exports, two notifications, two filters with the
      same purpose)? That is an `overlap`.
    - Is a term (a state, a role, a document) used in several families with no definition, or with
      different meanings, or decided in one family (as a supuesto or a criterion) while another
      still asks about it? That is a `contradiction`; set `term`. Start from `sharedTerms`.
-   - Is the same product-owner question asked in 2 or more families? That is a
-     `repeated-question`, resolved by a consolidated question.
+   - Is the same product-owner question asked in 2 or more families? The consolidated question
+     already resolves it. Write a `repeated-question` finding only when the repetition itself
+     reveals something (for example, a User Story that systematically copies its Tasks'
+     questions); a `repeated-question` finding is NOT required for each consolidated question.
 6. **Account for every question entry.** Every entry of kind `pregunta` in `candidates.json`
    must end up exactly once: in one consolidated question's `entries`, or in `notConsolidated`
-   with `status` `family-local` (stays as the family asked it) or `discarded` (it is not a real
-   question at feature level, e.g. already answered by another family's source; say which) and a
-   reason. Supuesto entries are optional: include one in a consolidated question when the
-   question would confirm or override it; never list a supuesto twice.
+   with `status` `family-local` (stays as the family asked it) or `discarded`, and a reason.
+   Supuesto entries are optional: include one in a consolidated question when the question would
+   confirm or override it; never list a supuesto twice.
+   - **Discard only on an explicit answer.** `discarded` means another family's text explicitly
+     answers the question. Cite it in `answeredBy`: one evidence row (same shape as in findings,
+     without `role`) from a family other than the entry's family. If another family probably
+     but not certainly answers it, do not discard: put the entry in a consolidated question
+     phrased as a confirmation ("¿Se confirma que ...?") that cites that source.
+   - **Compound questions.** An entry id is never split. When only part of a question is
+     feature-level, the whole entry goes into the consolidated question, and the question gets a
+     `partialEntries` row `{ "entry": "...", "localRemainder": "..." }` describing the part that
+     stays family-level.
 7. For each consolidated question, `affectedItems` lists every item that produced any of its
    entries (the User Story AND each Task that repeats the question), plus any other item whose
    criteria depend on the answer.
 8. Write `analysis.json`, then `feature-report.md` from it (same ids, same counts).
 9. Self-check before replying: every cross-family cluster reviewed once; every confirmed cluster
-   cited by a finding or consolidated question, no discarded one cited; every
-   dependency/overlap/contradiction has evidence rows from 2 or more families; every question
-   entry accounted for once; character rule. If the caller can run it, the validator command is
-   in "How it is checked".
+   cited by a finding or consolidated question, keeps remaining entries from 2 or more families,
+   no discarded one cited; every dependency/overlap/contradiction has evidence rows from 2 or
+   more families; every dependency has a consumer and a producer row from different families;
+   every discarded entry has `answeredBy` from another family; every question entry accounted
+   for once; character rule. If the caller can run it, the validator command is in "How it is
+   checked".
 
-## analysis.json schema (version 1)
+## analysis.json schema (version 2)
 
 Ids of families and items are strings (`"1001"`). Entry ids and cluster ids are exactly the ones
 in `candidates.json` (`F<family>-WI<item>-P<n>` for a question, `...-S<n>` for a supuesto;
@@ -96,7 +124,7 @@ in `candidates.json` (`F<family>-WI<item>-P<n>` for a question, `...-S<n>` for a
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "featureId": "1000",
   "clusterReviews": [
     { "cluster": "C001", "decision": "confirmed", "reason": "..." },
@@ -108,11 +136,18 @@ in `candidates.json` (`F<family>-WI<item>-P<n>` for a question, `...-S<n>` for a
       "question": "¿...?",
       "clusters": ["C001"],
       "entries": ["F1001-WI1001-P2", "F2001-WI2001-P2", "F3001-WI3001-S1"],
+      "partialEntries": [
+        { "entry": "F2001-WI2001-P2", "localRemainder": "qué parte queda en la familia 2001" }
+      ],
       "affectedItems": ["1001", "2001", "3001"]
     }
   ],
   "notConsolidated": [
-    { "entry": "F3001-WI3001-P1", "status": "family-local", "reason": "..." }
+    { "entry": "F3001-WI3001-P1", "status": "family-local", "reason": "..." },
+    {
+      "entry": "F3001-WI3002-P1", "status": "discarded", "reason": "...",
+      "answeredBy": { "family": "1001", "item": "1001", "section": "criterion", "number": 1 }
+    }
   ],
   "findings": [
     {
@@ -129,6 +164,16 @@ in `candidates.json` (`F<family>-WI<item>-P<n>` for a question, `...-S<n>` for a
         { "family": "3001", "item": "3001", "section": "supuesto", "number": 1 },
         { "family": "2001", "item": "2002", "section": "objective", "detail": "qué dice" }
       ]
+    },
+    {
+      "id": "FF-02",
+      "kind": "dependency",
+      "title": "...",
+      "description": "...",
+      "evidence": [
+        { "family": "2001", "item": "2001", "section": "criterion", "number": 1, "role": "consumer" },
+        { "family": "1001", "item": "1001", "section": "criterion", "number": 1, "role": "producer" }
+      ]
     }
   ]
 }
@@ -137,18 +182,27 @@ in `candidates.json` (`F<family>-WI<item>-P<n>` for a question, `...-S<n>` for a
 Field rules:
 - `clusterReviews[]`: `cluster` (id in candidates.json), `decision` `confirmed | discarded`,
   `reason` (non-empty). One row per reviewed cluster; every cross-family cluster required.
+- `schemaVersion`: `2` (the only accepted value).
 - `consolidatedQuestions[]`: `id` `CQ-NN` (unique), `question` (Spanish, asked once, neutral),
-  `entries` (non-empty), `affectedItems`, `clusters` (optional, may be empty).
-- `notConsolidated[]`: `entry`, `status` `family-local | discarded`, `reason` (non-empty).
+  `entries` (non-empty), `affectedItems`, `clusters` (optional, may be empty; cross-family or
+  intra-family group ids), `partialEntries` (optional): rows `{ "entry", "localRemainder" }`;
+  each `entry` must be one of this question's `entries`, `localRemainder` non-empty (the part of
+  that compound question that stays family-level).
+- `notConsolidated[]`: `entry`, `status` `family-local | discarded`, `reason` (non-empty). With
+  `discarded`, `answeredBy` is required: ONE evidence row (an object, not a list, without
+  `role`) from a family other than the entry's family.
 - `findings[]`: `id` `FF-NN` (unique), `kind` `dependency | overlap | contradiction |
   repeated-question`, `title`, `description`, `evidence` (rows), optional `term` (for
-  contradictions), `clusters`, `consolidatedQuestions` (required non-empty for
-  `repeated-question`).
+  contradictions), `clusters` (cross-family or intra-family group ids), `consolidatedQuestions`
+  (required non-empty for `repeated-question`).
 - Evidence row: `family`, `item` (must belong to that family), `section` one of `criterion |
   question | supuesto | story | objective | scope | dossier | evaluation | other`. For
   `criterion`, `question` and `supuesto` give `number` (it must exist in that item's proposal);
   for the others give `detail` (where exactly, and what it says). Optional `detail` and `quote`
   on any row. A dependency, overlap or contradiction needs rows from 2 or more families.
+- Evidence `role` `consumer | producer`: only on rows of a `dependency` finding (anywhere else
+  it is a violation). A dependency needs at least one `consumer` row and one `producer` row,
+  from different families; rows without `role` are allowed as extra context.
 - Text values are Spanish; keys and enum values are English as above.
 
 ## feature-report.md structure (neutral professional Spanish)
@@ -165,6 +219,8 @@ preguntas que quedan en su familia)
 ### CQ-01 - <pregunta>
 Ítems afectados: #1001, #2001, #3001
 Reemplaza: pregunta 2 de #1001, pregunta 2 de #2001; confirma o reemplaza el supuesto 1 de #3001
+Parte local pendiente: pregunta 2 de #2001 - <localRemainder>   (one line per partialEntries row;
+omit the line when there are none)
 
 ## Dependencias entre familias
 ## Solapamientos
@@ -177,6 +233,7 @@ Reemplaza: pregunta 2 de #1001, pregunta 2 de #2001; confirma o reemplaza el sup
 
 ## Preguntas que quedan en su familia
 | Entrada | Ítem | Estado | Motivo |
+(for a discarded entry, the Motivo names the answering source: familia, ítem, sección)
 ```
 
 Character rule for both files: no U+2013, U+2014, U+2026, U+2018, U+2019, U+201C, U+201D,
@@ -188,8 +245,9 @@ text.
 The orchestrator runs, after you finish:
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\src\review\check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id>
+powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\src\review\check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id> -ReviewsRoot reviews/<project>
 ```
 
-It writes `analysis-check.md` (exit 0 ok, 1 violations). A violation means the contract above
+`-ReviewsRoot` (where the family folders are) defaults to the parent of `-AnalysisDir`. It
+writes `analysis-check.md` (exit 0 ok, 1 violations; warnings do not fail). A violation means the contract above
 was broken; it does not judge whether your findings are right, so be right.

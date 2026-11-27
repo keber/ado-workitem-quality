@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "featureId": "1000",
   "clusterReviews": [
     {
@@ -106,8 +106,8 @@
       "clusters": [],
       "consolidatedQuestions": [],
       "evidence": [
-        { "family": "2001", "item": "2001", "section": "criterion", "number": 1, "detail": "Cola del técnico" },
-        { "family": "1001", "item": "1001", "section": "criterion", "number": 1, "detail": "Creación de solicitud" }
+        { "family": "2001", "item": "2001", "section": "criterion", "number": 1, "role": "consumer", "detail": "Cola del técnico" },
+        { "family": "1001", "item": "1001", "section": "criterion", "number": 1, "role": "producer", "detail": "Creación de solicitud" }
       ]
     }
   ]

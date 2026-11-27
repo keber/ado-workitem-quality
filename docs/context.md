@@ -193,53 +193,75 @@ them would restart the family consistency loops). QA decides what goes back to a
 | Step | Who | Input | Output |
 |---|---|---|---|
 | 1. Candidates | `src/review/cluster-feature.ps1` | family proposals | `candidates.md`, `candidates.json` |
-| 2. Analysis | `wi-feature-analyst` (`.claude/agents/`) | candidates + family folders (dossier, evaluation, proposals) | `analysis.json`, `feature-report.md` |
+| 2. Analysis | `wi-feature-analyst` (`.claude/agents/`) | candidates + family proposals and `dossier.md` (`evaluation.md` optional; never `validation.md` or `xref-report.md`) | `analysis.json`, `feature-report.md` |
 | 3. Check | `src/review/check-feature-analysis.ps1` | `analysis.json` + `candidates.json` + family proposals | `analysis-check.md` |
 
 The analyst confirms or discards every cross-family cluster with a reason, merges a topic split
 across clusters into one consolidated question, looks for cross-family dependencies that wording
 cannot show (a criterion of one family needs data that a Task of another family creates: it reads
 criteria and scope, not only questions), and classifies findings as `dependency | overlap |
-contradiction | repeated-question`, citing evidence from every family involved.
+contradiction | repeated-question`, citing evidence from every family involved. Rules added on
+2026-11-27 (schema version 2):
+- Inputs: proposals and `dossier.md` are mandatory; `evaluation.md` is optional, only to
+  understand a finding; `validation.md` and `xref-report.md` are never read (they judge the
+  wording, not the product).
+- A confirmed cross-family cluster whose remaining entries (after moving weak members out) come
+  from one family only must be `discarded` with that reason.
+- `clusters` in consolidated questions and findings may cite intra-family groups.
+- Compound questions: an entry id is never split; the entry goes into the consolidated question
+  and `partialEntries` describes the part that stays family-level ("Parte local pendiente" in
+  the report).
+- A `dependency` cites at least one `consumer` and one `producer` evidence row from different
+  families. A `repeated-question` finding is not required per consolidated question; use it only
+  when the repetition itself reveals something.
+- An entry is `discarded` only when another family explicitly answers it (`answeredBy`); a
+  probable answer becomes a consolidated question phrased as a confirmation.
 `feature-report.md` is neutral professional Spanish for the QA approver: consolidated
 product-owner questions (each once, with all affected items and the questions it replaces),
 dependencies, overlaps, term contradictions, discarded clusters, questions kept in their family.
 
-**`analysis.json` schema (version 1).** Full field rules in `.claude/agents/wi-feature-analyst.md`.
+**`analysis.json` schema (version 2).** Full field rules in `.claude/agents/wi-feature-analyst.md`.
 Example with synthetic data (equipment-maintenance domain, fixture Feature 1000):
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "featureId": "1000",
   "clusterReviews": [ { "cluster": "C003", "decision": "discarded", "reason": "Cada ítem tiene su propio validador." } ],
   "consolidatedQuestions": [
     { "id": "CQ-02", "question": "¿Qué roles pueden asignar solicitudes y cuáles solo consultar?",
       "clusters": ["C002"], "entries": ["F1001-WI1001-P3", "F1001-WI1002-P1", "F2001-WI2001-P1"],
-      "affectedItems": ["1001", "1002", "2001"] }
+      "affectedItems": ["1001", "1002", "2001"],
+      "partialEntries": [ { "entry": "F2001-WI2001-P1", "localRemainder": "Quién consulta la cola en 2001." } ] }
   ],
-  "notConsolidated": [ { "entry": "F3001-WI3001-P1", "status": "family-local", "reason": "Solo afecta a 3001." } ],
+  "notConsolidated": [ { "entry": "F3001-WI3001-P1", "status": "family-local", "reason": "Solo afecta a 3001." },
+                       { "entry": "F3001-WI3002-P1", "status": "discarded", "reason": "Lo responde 1001.",
+                         "answeredBy": { "family": "1001", "item": "1001", "section": "criterion", "number": 1 } } ],
   "findings": [
     { "id": "FF-04", "kind": "dependency", "title": "...", "description": "...", "clusters": [], "consolidatedQuestions": [],
-      "evidence": [ { "family": "2001", "item": "2001", "section": "criterion", "number": 1 },
-                    { "family": "1001", "item": "1001", "section": "criterion", "number": 1 } ] }
+      "evidence": [ { "family": "2001", "item": "2001", "section": "criterion", "number": 1, "role": "consumer" },
+                    { "family": "1001", "item": "1001", "section": "criterion", "number": 1, "role": "producer" } ] }
   ]
 }
 ```
 
 - `clusterReviews[]`: `cluster`, `decision` (`confirmed | discarded`), `reason`.
+- `schemaVersion`: `2` (the only accepted value).
 - `consolidatedQuestions[]`: `id` (`CQ-NN`), `question`, `entries` (candidate entry ids, non-empty),
-  `affectedItems`, optional `clusters`.
-- `notConsolidated[]`: `entry`, `status` (`family-local | discarded`), `reason`.
+  `affectedItems`, optional `clusters` (cross-family or intra-family), optional `partialEntries[]`
+  (`entry` in this question's `entries`, non-empty `localRemainder`).
+- `notConsolidated[]`: `entry`, `status` (`family-local | discarded`), `reason`; `discarded`
+  requires `answeredBy`: one evidence row (object, no `role`) from another family.
 - `findings[]`: `id` (`FF-NN`), `kind`, `title`, `description`, `evidence[]`, optional `term`,
   `clusters`, `consolidatedQuestions`. Evidence row: `family`, `item`, `section`
   (`criterion | question | supuesto | story | objective | scope | dossier | evaluation | other`),
-  `number` for criterion/question/supuesto, `detail` for the others, optional `quote`.
+  `number` for criterion/question/supuesto, `detail` for the others, optional `quote`; optional
+  `role` (`consumer | producer`), allowed only on `dependency` evidence.
 
 **Validator.**
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\src\review\check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id> [-ReviewsRoot reviews/<project>] [-Out <report>]
+powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\src\review\check-feature-analysis.ps1 -AnalysisDir reviews/<project>/_feature-<id> -ReviewsRoot reviews/<project> [-Out <report>]
 ```
 
 Writes `analysis-check.md` (default in `-AnalysisDir`; a path inside a family folder is refused).
@@ -247,19 +269,24 @@ Exit 0 ok, 1 violations (an unparseable `analysis.json` is a violation, with a r
 error (folder, `analysis.json` or `candidates.json` missing). `-ReviewsRoot` defaults to the parent
 of `-AnalysisDir`. Checks:
 - A1 schema: sections and types, unique well-formed ids, enums, non-empty texts, `featureId`
-  equal to `candidates.json`.
+  equal to `candidates.json`, `schemaVersion` 2, `partialEntries` rows well-formed.
 - A2 references: every family, item (in that family), entry, cluster and `CQ-` id exists; a
   question/supuesto number must be an entry of that item; a criterion number must exist in the
   item's proposal (family folder missing: warning, not verifiable).
 - A3 cluster reviews: every cross-family cluster reviewed exactly once with a reason; a confirmed
   cluster is cited by a finding or consolidated question, a discarded one by none.
-- A4 evidence: dependency, overlap and contradiction cite 2 or more families; repeated-question
-  has 2 or more evidence rows and links a consolidated question.
+- A4 evidence: dependency, overlap and contradiction cite 2 or more families; a dependency has a
+  `consumer` and a `producer` row from different families; `role` only on dependency evidence;
+  repeated-question has 2 or more evidence rows and links a consolidated question; a `discarded`
+  entry has a valid `answeredBy` row from a family other than the entry's.
 - A5 affected items: a consolidated question lists every item that produced any entry it covers.
 - A6 coverage: every question entry of `candidates.json` is accounted for exactly once (covered or
   `notConsolidated`); supuestos may be covered at most once but are not required (a supuesto is a
   decision already proposed, not a pending question).
 - A7 character rule on `analysis.json` and `feature-report.md` (missing report: warning).
+- Warning (not a violation): a `confirmed` cross-family cluster whose remaining entries span fewer
+  than 2 families. Remaining entries = its member entries listed in a consolidated question that
+  cites the cluster, or named by a question/supuesto evidence row of a finding that cites it.
 
 It checks the contract, not the judgment: a wrongly confirmed cluster with well-formed evidence
 passes. QA reviews `feature-report.md`.
